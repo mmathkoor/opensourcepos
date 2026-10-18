@@ -1,17 +1,17 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
 class AppStore extends ChangeNotifier {
-  AppStore(this._prefs) {
-    _load();
+  AppStore({String? raw, Future<void> Function(String data)? saver})
+      : _saver = saver {
+    _load(raw);
   }
 
-  final SharedPreferences? _prefs;
-  static const _key = 'dukkan_data_v1';
+  final Future<void> Function(String data)? _saver;
+  Future<void> _chain = Future<void>.value();
   static const defaultShopName = 'بقالتي';
 
   String shopName = defaultShopName;
@@ -200,8 +200,7 @@ class AppStore extends ChangeNotifier {
     shopName = name;
   }
 
-  void _load() {
-    final raw = _prefs?.getString(_key);
+  void _load(String? raw) {
     if (raw == null) return;
     try {
       _fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -209,7 +208,11 @@ class AppStore extends ChangeNotifier {
   }
 
   void _commit() {
-    _prefs?.setString(_key, jsonEncode(_toJson()));
+    final save = _saver;
+    if (save != null) {
+      final data = jsonEncode(_toJson());
+      _chain = _chain.then((_) => save(data)).catchError((Object _) {});
+    }
     notifyListeners();
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,18 +23,66 @@ Future<void> main() async {
             child: SelectableText('خطأ في الشاشة:\n${details.exception}'),
           ),
         );
-    SharedPreferences? prefs;
-    String? note;
-    try {
-      prefs = await SharedPreferences.getInstance()
-          .timeout(const Duration(seconds: 5));
-    } catch (e) {
-      note = '$e';
-    }
-    runApp(DukkanApp(store: AppStore(prefs), note: note));
+    final storage = await _openStorage();
+    runApp(DukkanApp(
+      store: AppStore(raw: storage.raw, saver: storage.saver),
+      note: storage.note,
+    ));
   }, (error, stack) {
     runApp(_ErrorApp('$error\n\n$stack'));
   });
+}
+
+const _prefsKey = 'dukkan_data_v1';
+
+class _Storage {
+  _Storage({this.raw, this.saver, this.note});
+
+  final String? raw;
+  final Future<void> Function(String data)? saver;
+  final String? note;
+}
+
+/// الويب: shared_preferences. الأندرويد: ملف داخل مجلد التطبيق الخاص
+/// (بدون إضافات، لأن إضافة shared_preferences تتعطل في نسخة الإصدار).
+Future<_Storage> _openStorage() async {
+  if (kIsWeb) {
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 5));
+      return _Storage(
+        raw: prefs.getString(_prefsKey),
+        saver: (s) async {
+          await prefs.setString(_prefsKey, s);
+        },
+      );
+    } catch (e) {
+      return _Storage(note: '$e');
+    }
+  }
+  final errors = <String>[];
+  final dirs = <String>[
+    '${Directory.systemTemp.parent.path}/files',
+    '/data/user/0/com.dukkan.dukkan/files',
+  ];
+  for (final d in dirs) {
+    try {
+      await Directory(d).create(recursive: true);
+      final file = File('$d/dukkan_data.json');
+      final raw = await file.exists() ? await file.readAsString() : null;
+      return _Storage(
+        raw: raw,
+        saver: (s) async {
+          final tmp = File('${file.path}.tmp');
+          await tmp.writeAsString(s, flush: true);
+          await tmp.rename(file.path);
+        },
+      );
+    } catch (e) {
+      errors.add('$d: $e');
+    }
+  }
+  return _Storage(note: errors.join('\n'));
 }
 
 class _ErrorApp extends StatelessWidget {
