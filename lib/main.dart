@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,15 +12,60 @@ import 'screens/stock_page.dart';
 import 'store.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  runApp(DukkanApp(store: AppStore(prefs)));
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    ErrorWidget.builder = (details) => Material(
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText('خطأ في الشاشة:\n${details.exception}'),
+          ),
+        );
+    SharedPreferences? prefs;
+    String? note;
+    try {
+      prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      note = '$e';
+    }
+    runApp(DukkanApp(store: AppStore(prefs), note: note));
+  }, (error, stack) {
+    runApp(_ErrorApp('$error\n\n$stack'));
+  });
+}
+
+class _ErrorApp extends StatelessWidget {
+  const _ErrorApp(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: SelectableText('Startup error:\n$message'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class DukkanApp extends StatelessWidget {
-  const DukkanApp({super.key, required this.store});
+  const DukkanApp({super.key, required this.store, this.note});
 
   final AppStore store;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -38,15 +85,16 @@ class DukkanApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF2F5F5),
         fontFamilyFallback: const ['Tajawal', 'Noto Sans Arabic', 'Tahoma'],
       ),
-      home: Shell(store: store),
+      home: Shell(store: store, note: note),
     );
   }
 }
 
 class Shell extends StatefulWidget {
-  const Shell({super.key, required this.store});
+  const Shell({super.key, required this.store, this.note});
 
   final AppStore store;
+  final String? note;
 
   @override
   State<Shell> createState() => _ShellState();
@@ -73,7 +121,22 @@ class _ShellState extends State<Shell> {
       ReportPage(store: store),
       SettingsPage(store: store),
     ];
-    final body = IndexedStack(index: _index, children: pages);
+    final stack = IndexedStack(index: _index, children: pages);
+    final body = Column(
+      children: [
+        if (widget.note != null)
+          Container(
+            width: double.infinity,
+            color: Colors.amber.shade100,
+            padding: const EdgeInsets.all(10),
+            child: Text(
+              'تنبيه: التخزين غير متاح، والبيانات لن تُحفظ بعد إغلاق التطبيق.\n${widget.note}',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        Expanded(child: stack),
+      ],
+    );
 
     return LayoutBuilder(builder: (context, c) {
       final wide = c.maxWidth >= 840;

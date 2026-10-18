@@ -10,7 +10,7 @@ class AppStore extends ChangeNotifier {
     _load();
   }
 
-  final SharedPreferences _prefs;
+  final SharedPreferences? _prefs;
   static const _key = 'dukkan_data_v1';
   static const defaultShopName = 'بقالتي';
 
@@ -201,7 +201,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _load() {
-    final raw = _prefs.getString(_key);
+    final raw = _prefs?.getString(_key);
     if (raw == null) return;
     try {
       _fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -209,7 +209,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _commit() {
-    _prefs.setString(_key, jsonEncode(_toJson()));
+    _prefs?.setString(_key, jsonEncode(_toJson()));
     notifyListeners();
   }
 }
