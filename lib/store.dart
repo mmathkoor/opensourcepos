@@ -26,6 +26,15 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  Product? byBarcode(String code) {
+    final c = code.trim();
+    if (c.isEmpty) return null;
+    for (final p in products) {
+      if (p.barcode == c) return p;
+    }
+    return null;
+  }
+
   List<Product> get lowStock =>
       products.where((p) => p.isOut || p.isLow).toList();
 
@@ -40,6 +49,7 @@ class AppStore extends ChangeNotifier {
     int cost = 0,
     int stock = 0,
     int minStock = 5,
+    String barcode = '',
   }) {
     products.add(Product(
       id: _newId(),
@@ -48,6 +58,7 @@ class AppStore extends ChangeNotifier {
       cost: cost,
       stock: stock,
       minStock: minStock,
+      barcode: barcode.trim(),
     ));
     products.sort((a, b) => a.name.compareTo(b.name));
     _commit();

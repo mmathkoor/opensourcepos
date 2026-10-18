@@ -32,7 +32,7 @@ class _StockPageState extends State<StockPage> {
           final all = widget.store.products;
           if (all.isEmpty) return _empty(context);
           final list = all
-              .where((p) => query.isEmpty || p.name.contains(query))
+              .where((p) => query.isEmpty || p.name.contains(query) || p.barcode.contains(query))
               .toList();
           return Center(
             child: ConstrainedBox(
@@ -146,6 +146,7 @@ Future<void> showProductDialog(
       TextEditingController(text: product == null ? '0' : '${product.stock}');
   final minC =
       TextEditingController(text: '${product?.minStock ?? 5}');
+  final barC = TextEditingController(text: product?.barcode ?? '');
   final formKey = GlobalKey<FormState>();
 
   await showDialog<void>(
@@ -165,6 +166,22 @@ Future<void> showProductDialog(
                   decoration: deco('اسم الصنف'),
                   validator: (v) =>
                       (v ?? '').trim().isEmpty ? 'اكتب اسم الصنف' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: barC,
+                  keyboardType: TextInputType.number,
+                  decoration: deco('الباركود (اختياري)',
+                      hint: 'امسحه بالقارئ أو اكتبه'),
+                  validator: (v) {
+                    final c = (v ?? '').trim();
+                    if (c.isEmpty) return null;
+                    final other = store.byBarcode(c);
+                    if (other != null && other != product) {
+                      return 'مستخدم لصنف «${other.name}»';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 numField(priceC, 'سعر البيع', required: true),
@@ -216,6 +233,7 @@ Future<void> showProductDialog(
                 cost: cost,
                 stock: stock,
                 minStock: min,
+                barcode: barC.text,
               );
             } else {
               product
@@ -223,7 +241,8 @@ Future<void> showProductDialog(
                 ..price = price
                 ..cost = cost
                 ..stock = stock
-                ..minStock = min;
+                ..minStock = min
+                ..barcode = barC.text.trim();
               store.updateProduct(product);
             }
             Navigator.pop(ctx);

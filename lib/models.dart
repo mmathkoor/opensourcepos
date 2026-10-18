@@ -6,10 +6,12 @@ class Product {
     this.cost = 0,
     this.stock = 0,
     this.minStock = 5,
+    this.barcode = '',
   });
 
   final String id;
   String name;
+  String barcode;
   int price;
   int cost;
   int stock;
@@ -25,6 +27,7 @@ class Product {
         'cost': cost,
         'stock': stock,
         'minStock': minStock,
+        'barcode': barcode,
       };
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
@@ -34,6 +37,7 @@ class Product {
         cost: ((j['cost'] ?? 0) as num).toInt(),
         stock: ((j['stock'] ?? 0) as num).toInt(),
         minStock: ((j['minStock'] ?? 5) as num).toInt(),
+        barcode: ((j['barcode'] ?? '') as String),
       );
 }
 

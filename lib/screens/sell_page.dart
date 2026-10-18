@@ -18,6 +18,40 @@ class SellPage extends StatefulWidget {
 class _SellPageState extends State<SellPage> {
   final ValueNotifier<Map<String, int>> cart = ValueNotifier({});
   String query = '';
+  final _searchC = TextEditingController();
+  final _searchF = FocusNode();
+
+  @override
+  void dispose() {
+    _searchC.dispose();
+    _searchF.dispose();
+    super.dispose();
+  }
+
+  void _onSubmitSearch(String v) {
+    final text = v.trim();
+    if (text.isEmpty) return;
+    var p = widget.store.byBarcode(text);
+    if (p == null) {
+      final matches =
+          widget.store.products.where((x) => x.name.contains(text)).toList();
+      if (matches.length == 1) p = matches.first;
+    }
+    if (p != null) {
+      if (p.stock <= 0) {
+        toast(context, '«${p.name}» نفد من المخزون');
+      } else {
+        _add(p);
+      }
+    } else if (RegExp(r'^\d{6,}$').hasMatch(text)) {
+      toast(context, 'هذا الباركود غير مسجّل في المخزون');
+    } else {
+      return;
+    }
+    _searchC.clear();
+    setState(() => query = '');
+    _searchF.requestFocus();
+  }
 
   int _cartTotal() {
     var t = 0;
@@ -128,8 +162,12 @@ class _SellPageState extends State<SellPage> {
     return Column(
       children: [
         TextField(
-          decoration: deco('ابحث عن صنف', prefix: const Icon(Icons.search)),
+          controller: _searchC,
+          focusNode: _searchF,
+          decoration: deco('ابحث بالاسم أو امسح الباركود',
+              prefix: const Icon(Icons.qr_code_scanner)),
           onChanged: (v) => setState(() => query = v.trim()),
+          onSubmitted: _onSubmitSearch,
         ),
         const SizedBox(height: 12),
         Expanded(
@@ -138,7 +176,10 @@ class _SellPageState extends State<SellPage> {
             builder: (context, _) {
               final all = widget.store.products;
               final list = all
-                  .where((p) => query.isEmpty || p.name.contains(query))
+                  .where((p) =>
+                      query.isEmpty ||
+                      p.name.contains(query) ||
+                      p.barcode.contains(query))
                   .toList();
               if (all.isEmpty) {
                 return const Center(
